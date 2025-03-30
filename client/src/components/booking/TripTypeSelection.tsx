@@ -16,9 +16,16 @@ const TripTypeSelection = ({ onNext }: TripTypeSelectionProps) => {
   
   const tripType = watch('tripType');
   
+  const [combinationOrder, setCombinationOrder] = useState<'resort-first' | 'pelagian-first'>('resort-first');
+  
   const handleTripTypeChange = (value: string) => {
     setSelectedType(value);
     setValue('tripType', value as "resort-only" | "combination-stay" | "pelagian-only");
+    
+    // Set the combination order property if this is a combination stay
+    if (value === 'combination-stay') {
+      setValue('combinationOrder', combinationOrder);
+    }
   };
   
   const handleContinue = () => {
@@ -130,6 +137,55 @@ const TripTypeSelection = ({ onNext }: TripTypeSelectionProps) => {
       
       {errors.tripType && (
         <p className="text-red-500 text-sm mt-2">{errors.tripType.message}</p>
+      )}
+      
+      {/* Combination Order Selection */}
+      {tripType === 'combination-stay' && (
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+          <h3 className="text-lg font-semibold text-wakatobi-primary mb-3">Select Your Itinerary Order</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div 
+              className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                combinationOrder === 'resort-first' 
+                  ? 'border-wakatobi-secondary bg-orange-50' 
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+              onClick={() => {
+                setCombinationOrder('resort-first');
+                setValue('combinationOrder', 'resort-first');
+              }}
+            >
+              <div className="flex items-center mb-2">
+                <Building className="h-5 w-5 mr-2 text-wakatobi-primary" />
+                <span className="font-semibold">Resort First, Then Pelagian</span>
+              </div>
+              <p className="text-sm text-gray-600">
+                Start with your stay at our luxury resort, then embark on the Pelagian yacht cruise.
+              </p>
+            </div>
+            
+            <div 
+              className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                combinationOrder === 'pelagian-first' 
+                  ? 'border-wakatobi-secondary bg-orange-50' 
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+              onClick={() => {
+                setCombinationOrder('pelagian-first');
+                setValue('combinationOrder', 'pelagian-first');
+              }}
+            >
+              <div className="flex items-center mb-2">
+                <Ship className="h-5 w-5 mr-2 text-wakatobi-primary" />
+                <span className="font-semibold">Pelagian First, Then Resort</span>
+              </div>
+              <p className="text-sm text-gray-600">
+                Begin with the Pelagian yacht cruise, followed by relaxation at our resort.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
       
       <div className="mt-8 flex justify-end">

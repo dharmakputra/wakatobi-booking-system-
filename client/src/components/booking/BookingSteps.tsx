@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { accommodations, activities, pelagianCabins, FLIGHT_PRICE } from '@/lib/booking-data';
 
-const getStepsForTripType = (tripType: string | undefined) => {
+const getStepsForTripType = (tripType: string | undefined, combinationOrder?: string) => {
   const baseSteps = [
     { id: 1, name: 'Trip Type' },
     { id: 2, name: 'Dates' },
@@ -35,13 +35,34 @@ const getStepsForTripType = (tripType: string | undefined) => {
         { id: 6, name: 'Review & Quote' }
       ];
     case 'combination-stay':
-      return [
-        ...baseSteps,
-        { id: 4, name: 'Resort Accommodation' },
-        { id: 5, name: 'Pelagian Cabin' },
-        { id: 6, name: 'Activities' },
-        { id: 7, name: 'Review & Quote' }
-      ];
+      if (combinationOrder === 'resort-first') {
+        return [
+          ...baseSteps,
+          { id: 4, name: 'Resort Accommodation' },
+          { id: 5, name: 'Pelagian Dates' },
+          { id: 6, name: 'Pelagian Cabin' },
+          { id: 7, name: 'Activities' },
+          { id: 8, name: 'Review & Quote' }
+        ];
+      } else if (combinationOrder === 'pelagian-first') {
+        return [
+          ...baseSteps,
+          { id: 4, name: 'Pelagian Dates' },
+          { id: 5, name: 'Pelagian Cabin' },
+          { id: 6, name: 'Resort Dates' },
+          { id: 7, name: 'Accommodation' },
+          { id: 8, name: 'Activities' },
+          { id: 9, name: 'Review & Quote' }
+        ];
+      } else {
+        return [
+          ...baseSteps,
+          { id: 4, name: 'Resort Accommodation' },
+          { id: 5, name: 'Pelagian Cabin' },
+          { id: 6, name: 'Activities' },
+          { id: 7, name: 'Review & Quote' }
+        ];
+      }
     case 'pelagian-only':
       return [
         ...baseSteps,
@@ -75,12 +96,13 @@ const BookingSteps: React.FC = () => {
   });
 
   const watchTripType = methods.watch('tripType');
-  const [steps, setSteps] = useState(getStepsForTripType(watchTripType));
+  const watchCombinationOrder = methods.watch('combinationOrder');
+  const [steps, setSteps] = useState(getStepsForTripType(watchTripType, watchCombinationOrder));
 
-  // Update steps when trip type changes
+  // Update steps when trip type or combination order changes
   useEffect(() => {
-    setSteps(getStepsForTripType(watchTripType));
-  }, [watchTripType]);
+    setSteps(getStepsForTripType(watchTripType, watchCombinationOrder));
+  }, [watchTripType, watchCombinationOrder]);
 
   const nextStep = () => {
     if (currentStep < steps.length) {
@@ -249,8 +271,13 @@ const BookingSteps: React.FC = () => {
         case 'pelagian-only':
           return <PelagianDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
         case 'combination-stay':
-          // For combination stay, we'll show resort dates first
-          return <ResortDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
+          // For combination stay, select based on the chosen order
+          const combinationOrder = methods.watch('combinationOrder');
+          if (combinationOrder === 'resort-first') {
+            return <ResortDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
+          } else {
+            return <PelagianDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
+          }
         default:
           return <DateSelectionStep onNext={nextStep} />;
       }
@@ -272,11 +299,25 @@ const BookingSteps: React.FC = () => {
       if (currentStep === 5) return <QuoteStep onPrev={prevStep} />;
     } 
     else if (watchTripType === 'combination-stay') {
-      if (currentStep === 4) return <AccommodationStep onNext={nextStep} onPrev={prevStep} />;
-      if (currentStep === 5) return <PelagianDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
-      if (currentStep === 6) return <PelagianCabinStep onNext={nextStep} onPrev={prevStep} />;
-      if (currentStep === 7) return <ActivitiesStep onNext={nextStep} onPrev={prevStep} />;
-      if (currentStep === 8) return <QuoteStep onPrev={prevStep} />;
+      const combinationOrder = methods.watch('combinationOrder');
+      
+      // Handle different step orders based on combination order
+      if (combinationOrder === 'resort-first') {
+        // Resort First -> Pelagian Second
+        if (currentStep === 4) return <AccommodationStep onNext={nextStep} onPrev={prevStep} />;
+        if (currentStep === 5) return <PelagianDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
+        if (currentStep === 6) return <PelagianCabinStep onNext={nextStep} onPrev={prevStep} />;
+        if (currentStep === 7) return <ActivitiesStep onNext={nextStep} onPrev={prevStep} />;
+        if (currentStep === 8) return <QuoteStep onPrev={prevStep} />;
+      } else {
+        // Pelagian First -> Resort Second
+        if (currentStep === 4) return <PelagianDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
+        if (currentStep === 5) return <PelagianCabinStep onNext={nextStep} onPrev={prevStep} />;
+        if (currentStep === 6) return <ResortDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
+        if (currentStep === 7) return <AccommodationStep onNext={nextStep} onPrev={prevStep} />;
+        if (currentStep === 8) return <ActivitiesStep onNext={nextStep} onPrev={prevStep} />;
+        if (currentStep === 9) return <QuoteStep onPrev={prevStep} />;
+      }
     }
     
     // Fallback

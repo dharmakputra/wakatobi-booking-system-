@@ -46,6 +46,9 @@ export const bookingFormSchema = z.object({
   tripType: z.enum(["resort-only", "combination-stay", "pelagian-only"], {
     required_error: "Please select your trip type.",
   }),
+  
+  // For combination stays, the order of resort and Pelagian
+  combinationOrder: z.enum(["resort-first", "pelagian-first"]).optional(),
 
   // Resort Stay
   resortArrivalDate: z.date({
