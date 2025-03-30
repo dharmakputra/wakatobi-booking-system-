@@ -8,9 +8,10 @@ import QuoteStep from './QuoteStep';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { bookingFormSchema } from '@shared/schema';
-import { addDays } from 'date-fns';
+import { addDays, differenceInDays } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { accommodations, activities, FLIGHT_PRICE } from '@/lib/booking-data';
 
 const steps = [
   { id: 1, name: 'Dates' },
@@ -54,11 +55,46 @@ const BookingSteps: React.FC = () => {
 
   const onSubmit = async (data: BookingFormData) => {
     try {
+      // Calculate price totals
+      const adults = data.adults || 0;
+      const children = data.children || 0;
+      const selectedAccommodation = accommodations.find(acc => acc.id === data.accommodationId);
+      const selectedActivity = activities.find(act => act.id === data.activityId);
+      const arrivalDate = data.arrivalDate;
+      const departureDate = data.departureDate;
+      
+      if (!selectedAccommodation || !selectedActivity || !arrivalDate || !departureDate) {
+        toast({
+          title: "Form Error",
+          description: "Missing required booking information. Please complete all steps.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Calculate nights
+      const nights = differenceInDays(departureDate, arrivalDate);
+      
+      // Calculate discount
+      const discountRate = data.visitCount === 'second-third' ? 0.05 : 
+                           data.visitCount === 'fourth-plus' ? 0.10 : 0;
+      
+      // Calculate totals
+      const totalGuests = adults + children;
+      const accommodationTotal = selectedAccommodation.pricePerNight * totalGuests * nights;
+      const activityTotal = selectedActivity.pricePerDay * totalGuests * nights;
+      const flightTotal = FLIGHT_PRICE * totalGuests;
+      
+      // Discount only applies to accommodation and activities
+      const discount = (accommodationTotal + activityTotal) * discountRate;
+      const totalPrice = Math.round((accommodationTotal + activityTotal + flightTotal - discount) * 100);
+      
       const response = await apiRequest('POST', '/api/bookings', {
         ...data,
         // Convert dates to ISO strings for the backend
         arrivalDate: data.arrivalDate.toISOString(),
         departureDate: data.departureDate.toISOString(),
+        totalPrice, // Add the calculated total price (in cents)
       });
       
       if (response.ok) {
@@ -67,6 +103,7 @@ const BookingSteps: React.FC = () => {
           description: "Our team will contact you shortly to confirm your reservation.",
         });
       } else {
+        console.error("Submission Error:", response);
         toast({
           title: "Submission Error",
           description: "There was a problem submitting your booking. Please try again.",
@@ -74,6 +111,7 @@ const BookingSteps: React.FC = () => {
         });
       }
     } catch (error) {
+      console.error("Submission Error:", error);
       toast({
         title: "Submission Error",
         description: "There was a problem submitting your booking. Please try again.",

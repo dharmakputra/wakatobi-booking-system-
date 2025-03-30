@@ -62,10 +62,10 @@ export const bookingFormSchema = z.object({
   activityId: z.string({
     required_error: "Please select an activity.",
   }),
-  firstName: z.string().min(2, "First name must be at least 2 characters.").optional(),
-  lastName: z.string().min(2, "Last name must be at least 2 characters.").optional(),
-  email: z.string().email("Please enter a valid email address.").optional(),
-  phone: z.string().min(5, "Please enter a valid phone number.").optional(),
+  firstName: z.string().min(2, "First name must be at least 2 characters."),
+  lastName: z.string().min(2, "Last name must be at least 2 characters."),
+  email: z.string().email("Please enter a valid email address."),
+  phone: z.string().min(5, "Please enter a valid phone number."),
   specialRequests: z.string().optional(),
 });
 
