@@ -32,11 +32,19 @@ const CombinedDateSelectionStep: React.FC<CombinedDateSelectionStepProps> = ({ o
     let isValid = true;
     
     if (tripType === 'resort-only') {
-      isValid = await trigger(['resortArrivalDate', 'resortDepartureDate']);
+      const valid1 = await trigger('resortArrivalDate');
+      const valid2 = await trigger('resortDepartureDate');
+      isValid = valid1 && valid2;
     } else if (tripType === 'pelagian-only') {
-      isValid = await trigger(['pelagianArrivalDate', 'pelagianDepartureDate']);
+      const valid1 = await trigger('pelagianArrivalDate');
+      const valid2 = await trigger('pelagianDepartureDate');
+      isValid = valid1 && valid2;
     } else if (tripType === 'combination-stay') {
-      isValid = await trigger(['resortArrivalDate', 'resortDepartureDate', 'pelagianArrivalDate', 'pelagianDepartureDate']);
+      const valid1 = await trigger('resortArrivalDate');
+      const valid2 = await trigger('resortDepartureDate');
+      const valid3 = await trigger('pelagianArrivalDate');
+      const valid4 = await trigger('pelagianDepartureDate');
+      isValid = valid1 && valid2 && valid3 && valid4;
     }
     
     if (isValid) {
@@ -65,18 +73,18 @@ const CombinedDateSelectionStep: React.FC<CombinedDateSelectionStepProps> = ({ o
   };
 
   // Pelagian date validation and selection (only Mondays)
-  const isMonday = (date: Date) => {
+  const checkIsMonday = (date: Date) => {
     return isMonday(date);
   };
 
   const disabledPelagianArrivalDays = (date: Date) => {
-    return !isMonday(date) || isPastDate(date);
+    return !checkIsMonday(date) || isPastDate(date);
   };
 
   const disabledPelagianDepartureDays = (date: Date) => {
     if (!pelagianArrivalDate) return true;
     if (date < pelagianArrivalDate) return true;
-    return !isMonday(date);
+    return !checkIsMonday(date);
   };
 
   // Auto-suggest departure date (7 days after arrival for Pelagian, next Mon/Fri for Resort)
