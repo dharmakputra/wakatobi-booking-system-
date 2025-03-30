@@ -305,23 +305,33 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
             <div className="mb-4">
               <h4 className="font-medium text-wakatobi-primary">Activities</h4>
               {(tripType === 'resort-only' || tripType === 'combination-stay') && (
-                selectedActivity ? (
-                  <>
-                    <p>{selectedActivity.name}</p>
-                    <p className="text-sm text-gray-600">${selectedActivity.pricePerDay} per person per day</p>
-                    <p className="text-sm text-gray-600">
-                      Total booked: {
-                        Object.values(guestActivities).reduce((sum, activity) => {
-                          if (typeof activity === 'object' && activity && 'days' in activity) {
-                            return sum + (activity.days || 0);
-                          }
-                          return sum;
-                        }, 0)
-                      } activity days
-                    </p>
-                  </>
+                Object.keys(guestActivities).length > 0 ? (
+                  <div className="space-y-2">
+                    {Object.entries(guestActivities).map(([guestId, guestActivity]) => {
+                      // Find the activity
+                      const activity = activities.find(a => a.id === guestActivity.activityId);
+                      // Skip if no activity or 0 days
+                      if (!activity || !guestActivity.days) return null;
+                      
+                      // Create a guest label
+                      const guestLabel = guestId.startsWith('a')
+                        ? `Adult ${parseInt(guestId.substring(1))}`
+                        : `Child ${parseInt(guestId.substring(1))}`;
+                        
+                      return (
+                        <div key={guestId} className="border-b border-gray-100 pb-1">
+                          <p className="text-sm font-medium">{guestLabel}: {activity.name}</p>
+                          <div className="flex justify-between text-xs text-gray-600">
+                            <span>{guestActivity.days} day{guestActivity.days !== 1 ? 's' : ''}</span>
+                            <span>${activity.pricePerDay}/day</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <p className="text-xs text-gray-500 pt-1">Prices are per person per day</p>
+                  </div>
                 ) : (
-                  <p className="text-sm text-red-500">Please select resort activities</p>
+                  <p className="text-sm text-red-500">Please select guest activities</p>
                 )
               )}
               
@@ -353,18 +363,36 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
           
           {/* Resort Activities - Only displayed if selected and has days */}
           {totals.activityTotal > 0 && (
-            <div className="flex justify-between">
-              <span>
-                Resort Activities (Individual activities with a total of {
-                  Object.values(guestActivities).reduce((sum, activity) => {
-                    if (typeof activity === 'object' && activity && 'days' in activity) {
-                      return sum + (activity.days || 0);
-                    }
-                    return sum;
-                  }, 0)
-                } days)
-              </span>
-              <span className="font-medium">{formatCurrency(totals.activityTotal)}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between font-medium">
+                <span>Resort Activities</span>
+                <span>{formatCurrency(totals.activityTotal)}</span>
+              </div>
+              
+              {/* Show each guest's activity breakdown */}
+              <div className="ml-4 text-sm space-y-1">
+                {Object.entries(guestActivities).map(([guestId, guestActivity]) => {
+                  // Find the activity
+                  const activity = activities.find(a => a.id === guestActivity.activityId);
+                  // Skip if no activity or 0 days
+                  if (!activity || !guestActivity.days) return null;
+                  
+                  // Create a guest label
+                  const guestLabel = guestId.startsWith('a')
+                    ? `Adult ${parseInt(guestId.substring(1))}`
+                    : `Child ${parseInt(guestId.substring(1))}`;
+                    
+                  // Calculate this guest's activity cost
+                  const guestActivityCost = activity.pricePerDay * guestActivity.days;
+                    
+                  return (
+                    <div key={guestId} className="flex justify-between">
+                      <span>{guestLabel}: {activity.name} ({guestActivity.days} day{guestActivity.days !== 1 ? 's' : ''} × ${activity.pricePerDay})</span>
+                      <span>{formatCurrency(guestActivityCost)}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
           
