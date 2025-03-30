@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Calendar } from '@/components/ui/calendar';
-import { isBefore, addDays, differenceInDays, isMonday, isFriday, format } from 'date-fns';
+import { 
+  isBefore, addDays, differenceInDays, isMonday, isFriday, format, 
+  addMonths, getDate, getDaysInMonth, isAfter 
+} from 'date-fns';
 import { Info } from 'lucide-react';
 import { BookingFormData } from '@shared/schema';
 
@@ -21,6 +24,48 @@ const DateSelectionStep: React.FC<DateSelectionStepProps> = ({ onNext }) => {
   const nights = arrivalDate && departureDate ? 
     differenceInDays(departureDate, arrivalDate) :
     undefined;
+    
+  // Effect to suggest a departure date when arrival date changes
+  useEffect(() => {
+    if (arrivalDate) {
+      // Get days left in the month
+      const daysInMonth = getDaysInMonth(arrivalDate);
+      const dayOfMonth = getDate(arrivalDate);
+      const daysLeftInMonth = daysInMonth - dayOfMonth;
+      
+      // If arrival date is near the end of the month (less than 7 days left) or 
+      // if there are no valid Monday/Friday options left in this month,
+      // look for a date in the next month
+      if (daysLeftInMonth < 7) {
+        // Try to find a departure date in the next month
+        const nextMonth = addMonths(arrivalDate, 1);
+        
+        // Find the first Monday or Friday in the next month
+        let suggestedDeparture = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1);
+        while (!isMonFriOnly(suggestedDeparture) || !isAfter(suggestedDeparture, arrivalDate)) {
+          suggestedDeparture = addDays(suggestedDeparture, 1);
+        }
+        
+        setValue('departureDate', suggestedDeparture, { shouldValidate: true });
+      } else {
+        // Otherwise, find the next available Monday or Friday in the current month
+        let nextDeparture = addDays(arrivalDate, 1);
+        while (!isMonFriOnly(nextDeparture) || isBefore(nextDeparture, arrivalDate)) {
+          nextDeparture = addDays(nextDeparture, 1);
+          
+          // If we've gone into the next month, stop
+          if (nextDeparture.getMonth() !== arrivalDate.getMonth()) {
+            break;
+          }
+        }
+        
+        // Only set departure date if we found a valid one in the current month
+        if (nextDeparture.getMonth() === arrivalDate.getMonth()) {
+          setValue('departureDate', nextDeparture, { shouldValidate: true });
+        }
+      }
+    }
+  }, [arrivalDate, setValue]);
 
   // Enforce Monday and Friday only restriction
   const isMonFriOnly = (date: Date) => {
@@ -39,9 +84,15 @@ const DateSelectionStep: React.FC<DateSelectionStepProps> = ({ onNext }) => {
   
   // Disable non Monday/Friday dates, past dates, and dates before arrival for departure
   const disabledDepartureDays = (date: Date) => {
-    return !isMonFriOnly(date) || 
-      isPastDate(date) || 
-      (arrivalDate ? isBefore(date, arrivalDate) : false);
+    if (!isMonFriOnly(date) || isPastDate(date)) {
+      return true;
+    }
+    
+    if (arrivalDate && isBefore(date, arrivalDate)) {
+      return true;
+    }
+    
+    return false;
   };
 
   // Handle continue button click
@@ -49,8 +100,26 @@ const DateSelectionStep: React.FC<DateSelectionStepProps> = ({ onNext }) => {
     if (arrivalDate && departureDate) {
       onNext();
     } else {
-      if (!arrivalDate) setValue('arrivalDate', undefined, { shouldValidate: true });
-      if (!departureDate) setValue('departureDate', undefined, { shouldValidate: true });
+      // Trigger form validation to show errors
+      const formData = { arrivalDate, departureDate } as any;
+      const trigger = ["arrivalDate", "departureDate"];
+      
+      // Set the fields with errors to touch them
+      if (!arrivalDate) {
+        formData.arrivalDate = null;
+      }
+      
+      if (!departureDate) {
+        formData.departureDate = null;
+      }
+      
+      // We need to use trigger to show validation errors
+      trigger.forEach(field => {
+        setValue(field as any, formData[field], { 
+          shouldValidate: true,
+          shouldTouch: true
+        });
+      });
     }
   };
 
@@ -71,7 +140,7 @@ const DateSelectionStep: React.FC<DateSelectionStepProps> = ({ onNext }) => {
             <Calendar
               mode="single"
               selected={arrivalDate}
-              onSelect={(date) => setValue('arrivalDate', date, { shouldValidate: true })}
+              onSelect={(date) => date && setValue('arrivalDate', date, { shouldValidate: true })}
               onlyMonFri={true}
               disabledDays={isPastDate}
               className="rounded-md border-0"
@@ -88,7 +157,7 @@ const DateSelectionStep: React.FC<DateSelectionStepProps> = ({ onNext }) => {
             <Calendar
               mode="single"
               selected={departureDate}
-              onSelect={(date) => setValue('departureDate', date, { shouldValidate: true })}
+              onSelect={(date) => date && setValue('departureDate', date, { shouldValidate: true })}
               onlyMonFri={true}
               disabled={!arrivalDate}
               disabledDays={disabledDepartureDays}

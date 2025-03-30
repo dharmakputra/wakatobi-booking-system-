@@ -82,8 +82,8 @@ const BookingSteps: React.FC = () => {
       // Calculate stay length discount
       const stayDiscountRate = nights > 14 ? 0.10 : nights > 7 ? 0.05 : 0;
       
-      // Use the higher discount rate (they don't stack)
-      const effectiveDiscountRate = Math.max(visitorDiscountRate, stayDiscountRate);
+      // Always prioritize stay length discount if it's available (they don't stack)
+      const effectiveDiscountRate = stayDiscountRate > 0 ? stayDiscountRate : visitorDiscountRate;
       
       // Calculate totals
       const totalGuests = adults + children;

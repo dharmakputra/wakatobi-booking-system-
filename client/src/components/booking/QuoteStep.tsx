@@ -52,9 +52,10 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
     return getStayDiscountRate(nights);
   }, [nights]);
   
-  // Get the higher of the two discount rates (they don't stack)
+  // Always prioritize stay length discount if it's available (they don't stack)
   const effectiveDiscountRate = useMemo(() => {
-    return Math.max(visitorDiscountRate, stayDiscountRate);
+    // If stay discount exists, use it; otherwise fall back to visitor discount
+    return stayDiscountRate > 0 ? stayDiscountRate : visitorDiscountRate;
   }, [visitorDiscountRate, stayDiscountRate]);
   
   // Calculate totals with appropriate discounts

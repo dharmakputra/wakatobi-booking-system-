@@ -4,6 +4,7 @@ import { DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import { isMonday, isFriday } from "date-fns"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
   disabledDays?: Date[] | ((date: Date) => boolean)
@@ -87,6 +88,13 @@ function Calendar({
       components={{
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
+      }}
+      modifiers={{
+        // Add a special highlight for Monday and Friday dates
+        monFri: (date) => isMonday(date) || isFriday(date)
+      }}
+      modifiersClassNames={{
+        monFri: "border-2 border-wakatobi-secondary font-semibold"
       }}
       disabled={combinedDisabledDays}
       {...props}
