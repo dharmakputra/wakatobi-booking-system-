@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { BookingFormData } from '@shared/schema';
 import { ArrowLeft, Info, Send } from 'lucide-react';
-import { accommodations, activities, FLIGHT_PRICE, getDiscountRate, getStayDiscountRate } from '@/lib/booking-data';
+import { accommodations, activities, pelagianCabins, FLIGHT_PRICE, getDiscountRate, getStayDiscountRate } from '@/lib/booking-data';
 import { differenceInDays, format } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,6 +16,11 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
   const { watch, control, register, formState: { errors } } = useFormContext<BookingFormData>();
   
   // Get form values
+  const tripType = watch('tripType');
+  const resortArrivalDate = watch('resortArrivalDate');
+  const resortDepartureDate = watch('resortDepartureDate');
+  const pelagianArrivalDate = watch('pelagianArrivalDate');
+  const pelagianDepartureDate = watch('pelagianDepartureDate');
   const arrivalDate = watch('arrivalDate');
   const departureDate = watch('departureDate');
   const adults = watch('adults') || 0;
@@ -24,16 +29,36 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
   const visitCount = watch('visitCount');
   const accommodationId = watch('accommodationId');
   const activityId = watch('activityId');
+  const pelagianCabinId = watch('pelagianCabinId');
   
-  // Calculate nights
-  const nights = useMemo(() => {
+  // Calculate resort nights
+  const resortNights = useMemo(() => {
+    if (resortArrivalDate && resortDepartureDate) {
+      return differenceInDays(resortDepartureDate, resortArrivalDate);
+    }
+    return 0;
+  }, [resortArrivalDate, resortDepartureDate]);
+  
+  // Calculate Pelagian nights
+  const pelagianNights = useMemo(() => {
+    if (pelagianArrivalDate && pelagianDepartureDate) {
+      return differenceInDays(pelagianDepartureDate, pelagianArrivalDate);
+    }
+    return 0;
+  }, [pelagianArrivalDate, pelagianDepartureDate]);
+  
+  // Total nights (used for legacy and for total night calculation)
+  const totalNights = useMemo(() => {
+    // For legacy support
     if (arrivalDate && departureDate) {
       return differenceInDays(departureDate, arrivalDate);
     }
-    return 0;
-  }, [arrivalDate, departureDate]);
+    
+    // For modern trip types
+    return resortNights + pelagianNights;
+  }, [arrivalDate, departureDate, resortNights, pelagianNights]);
   
-  // Find selected accommodation and activity
+  // Find selected accommodation, activity, and Pelagian cabin
   const selectedAccommodation = useMemo(() => {
     return accommodations.find(acc => acc.id === accommodationId);
   }, [accommodationId]);
@@ -42,6 +67,10 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
     return activities.find(act => act.id === activityId);
   }, [activityId]);
   
+  const selectedPelagianCabin = useMemo(() => {
+    return pelagianCabins.find(cabin => cabin.id === pelagianCabinId);
+  }, [pelagianCabinId]);
+  
   // Calculate visitor discount rate based on visit count
   const visitorDiscountRate = useMemo(() => {
     return getDiscountRate(visitCount);
@@ -49,8 +78,8 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
   
   // Calculate stay length discount rate
   const stayDiscountRate = useMemo(() => {
-    return getStayDiscountRate(nights);
-  }, [nights]);
+    return getStayDiscountRate(totalNights);
+  }, [totalNights]);
   
   // Always prioritize stay length discount if it's available (they don't stack)
   const effectiveDiscountRate = useMemo(() => {
@@ -60,28 +89,50 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
   
   // Calculate totals with appropriate discounts
   const totals = useMemo(() => {
-    if (!selectedAccommodation || !selectedActivity) {
-      return {
-        accommodationTotal: 0,
-        activityTotal: 0,
-        flightTotal: 0,
-        discount: 0,
-        discountType: '',
-        discountRate: 0,
-        subtotal: 0,
-        total: 0
-      };
-    }
-    
+    // Base default return value
+    const defaultReturnValue = {
+      accommodationTotal: 0,
+      activityTotal: 0,
+      pelagianCabinTotal: 0,
+      flightTotal: 0,
+      discount: 0,
+      discountType: '',
+      discountRate: 0,
+      subtotal: 0,
+      total: 0
+    };
+
     // Base calculations
     const totalGuests = adults + children;
-    const accommodationTotal = selectedAccommodation.pricePerNight * totalGuests * nights;
-    const activityTotal = selectedActivity.pricePerDay * totalGuests * nights;
+    let accommodationTotal = 0;
+    let activityTotal = 0;
+    let pelagianCabinTotal = 0;
+    
+    // Calculate resort costs if applicable
+    if (tripType === 'resort-only' || tripType === 'combination-stay') {
+      if (selectedAccommodation && resortNights > 0) {
+        accommodationTotal = selectedAccommodation.pricePerNight * totalGuests * resortNights;
+      }
+      
+      if (selectedActivity && resortNights > 0) {
+        activityTotal = selectedActivity.pricePerDay * totalGuests * resortNights;
+      }
+    }
+    
+    // Calculate Pelagian costs if applicable
+    if (tripType === 'pelagian-only' || tripType === 'combination-stay') {
+      if (selectedPelagianCabin && pelagianNights > 0) {
+        pelagianCabinTotal = selectedPelagianCabin.pricePerNight * totalGuests * pelagianNights;
+      }
+    }
+    
+    // Calculate flight costs
     const flightTotal = FLIGHT_PRICE * totalGuests;
     
-    // Discount only applies to accommodation and activities
-    const discount = (accommodationTotal + activityTotal) * effectiveDiscountRate;
-    const subtotal = accommodationTotal + activityTotal + flightTotal;
+    // Discount only applies to accommodation, activities, and Pelagian cabin
+    const discountableAmount = accommodationTotal + activityTotal + pelagianCabinTotal;
+    const discount = discountableAmount * effectiveDiscountRate;
+    const subtotal = discountableAmount + flightTotal;
     const total = subtotal - discount;
     
     // Determine which discount type is being applied (for display purposes)
@@ -97,6 +148,7 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
     return {
       accommodationTotal,
       activityTotal,
+      pelagianCabinTotal,
       flightTotal,
       discount,
       discountType,
@@ -104,7 +156,19 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
       subtotal,
       total
     };
-  }, [selectedAccommodation, selectedActivity, adults, children, nights, effectiveDiscountRate, visitorDiscountRate, stayDiscountRate]);
+  }, [
+    tripType, 
+    selectedAccommodation, 
+    selectedActivity, 
+    selectedPelagianCabin,
+    adults, 
+    children, 
+    resortNights,
+    pelagianNights,
+    effectiveDiscountRate, 
+    visitorDiscountRate, 
+    stayDiscountRate
+  ]);
   
   // Format currency
   const formatCurrency = (value: number) => {
@@ -119,9 +183,9 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
   const discountText = () => {
     // Stay length discount is being applied
     if (totals.discountType === 'stay') {
-      if (nights > 14) {
+      if (totalNights > 14) {
         return `Stay longer than 14 nights (10% discount)`;
-      } else if (nights > 7) {
+      } else if (totalNights > 7) {
         return `Stay longer than 7 nights (5% discount)`;
       }
     }
@@ -154,10 +218,25 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
           <div>
             <div className="mb-4">
               <h4 className="font-medium text-wakatobi-primary">Dates</h4>
-              {arrivalDate && departureDate ? (
+              {tripType === 'resort-only' && resortArrivalDate && resortDepartureDate ? (
                 <>
-                  <p>{format(arrivalDate, 'MMMM d, yyyy')} - {format(departureDate, 'MMMM d, yyyy')}</p>
-                  <p className="text-sm text-gray-600">{nights} nights</p>
+                  <p>{format(resortArrivalDate, 'MMMM d, yyyy')} - {format(resortDepartureDate, 'MMMM d, yyyy')}</p>
+                  <p className="text-sm text-gray-600">{resortNights} nights</p>
+                </>
+              ) : tripType === 'pelagian-only' && pelagianArrivalDate && pelagianDepartureDate ? (
+                <>
+                  <p>{format(pelagianArrivalDate, 'MMMM d, yyyy')} - {format(pelagianDepartureDate, 'MMMM d, yyyy')}</p>
+                  <p className="text-sm text-gray-600">{pelagianNights} nights</p>
+                </>
+              ) : tripType === 'combination-stay' ? (
+                <>
+                  <p>Total of {totalNights} nights</p>
+                  {resortArrivalDate && resortDepartureDate && (
+                    <p className="text-sm text-gray-600">Resort: {format(resortArrivalDate, 'MMM d')} - {format(resortDepartureDate, 'MMM d')} ({resortNights} nights)</p>
+                  )}
+                  {pelagianArrivalDate && pelagianDepartureDate && (
+                    <p className="text-sm text-gray-600">Pelagian: {format(pelagianArrivalDate, 'MMM d')} - {format(pelagianDepartureDate, 'MMM d')} ({pelagianNights} nights)</p>
+                  )}
                 </>
               ) : (
                 <p className="text-sm text-red-500">Please select your dates</p>
@@ -176,27 +255,52 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
             
             <div className="mb-4">
               <h4 className="font-medium text-wakatobi-primary">Accommodation</h4>
-              {selectedAccommodation ? (
+              {tripType === 'resort-only' || tripType === 'combination-stay' ? (
                 <>
-                  <p>{selectedAccommodation.name}</p>
-                  <p className="text-sm text-gray-600">${selectedAccommodation.pricePerNight} per person per night</p>
+                  {selectedAccommodation ? (
+                    <>
+                      <p>Resort: {selectedAccommodation.name}</p>
+                      <p className="text-sm text-gray-600">${selectedAccommodation.pricePerNight} per person per night</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-red-500">Please select resort accommodation</p>
+                  )}
                 </>
-              ) : (
-                <p className="text-sm text-red-500">Please select accommodation</p>
-              )}
+              ) : null}
+              
+              {tripType === 'pelagian-only' || tripType === 'combination-stay' ? (
+                <>
+                  {selectedPelagianCabin ? (
+                    <>
+                      <p className={tripType === 'combination-stay' ? 'mt-2' : ''}>
+                        Pelagian: {selectedPelagianCabin.name}
+                      </p>
+                      <p className="text-sm text-gray-600">${selectedPelagianCabin.pricePerNight} per person per night</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-red-500 mt-2">Please select Pelagian cabin</p>
+                  )}
+                </>
+              ) : null}
             </div>
           </div>
           
           <div>
             <div className="mb-4">
               <h4 className="font-medium text-wakatobi-primary">Activities</h4>
-              {selectedActivity ? (
-                <>
-                  <p>{selectedActivity.name}</p>
-                  <p className="text-sm text-gray-600">${selectedActivity.pricePerDay} per person per day</p>
-                </>
-              ) : (
-                <p className="text-sm text-red-500">Please select activities</p>
+              {(tripType === 'resort-only' || tripType === 'combination-stay') && (
+                selectedActivity ? (
+                  <>
+                    <p>{selectedActivity.name}</p>
+                    <p className="text-sm text-gray-600">${selectedActivity.pricePerDay} per person per day</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-red-500">Please select resort activities</p>
+                )
+              )}
+              
+              {tripType === 'pelagian-only' && (
+                <p>Included in Pelagian cruise package</p>
               )}
             </div>
             
@@ -213,26 +317,49 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
         <h3 className="font-montserrat font-semibold text-lg mb-4 pb-3 border-b border-gray-200">Price Breakdown</h3>
         
         <div className="space-y-3">
-          <div className="flex justify-between">
-            <span>Accommodation ({adults + children} persons × {nights} nights × ${selectedAccommodation?.pricePerNight || 0})</span>
-            <span className="font-medium">{formatCurrency(totals.accommodationTotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Activities ({adults + children} persons × {nights} days × ${selectedActivity?.pricePerDay || 0})</span>
-            <span className="font-medium">{formatCurrency(totals.activityTotal)}</span>
-          </div>
+          {/* Resort Accommodation - Only displayed if selected and has nights */}
+          {totals.accommodationTotal > 0 && (
+            <div className="flex justify-between">
+              <span>Resort Accommodation ({adults + children} persons × {resortNights} nights × ${selectedAccommodation?.pricePerNight || 0})</span>
+              <span className="font-medium">{formatCurrency(totals.accommodationTotal)}</span>
+            </div>
+          )}
+          
+          {/* Resort Activities - Only displayed if selected and has days */}
+          {totals.activityTotal > 0 && (
+            <div className="flex justify-between">
+              <span>Resort Activities ({adults + children} persons × {resortNights} days × ${selectedActivity?.pricePerDay || 0})</span>
+              <span className="font-medium">{formatCurrency(totals.activityTotal)}</span>
+            </div>
+          )}
+          
+          {/* Pelagian Cabin - Only displayed if selected and has nights */}
+          {totals.pelagianCabinTotal > 0 && (
+            <div className="flex justify-between">
+              <span>Pelagian Cabin ({adults + children} persons × {pelagianNights} nights × ${selectedPelagianCabin?.pricePerNight || 0})</span>
+              <span className="font-medium">{formatCurrency(totals.pelagianCabinTotal)}</span>
+            </div>
+          )}
+          
+          {/* Flights */}
           <div className="flex justify-between">
             <span>Flights ({adults + children} persons × ${FLIGHT_PRICE})</span>
             <span className="font-medium">{formatCurrency(totals.flightTotal)}</span>
           </div>
+          
+          {/* Subtotal */}
           <div className="flex justify-between pt-3 border-t border-gray-200">
             <span className="font-medium">Subtotal</span>
             <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
           </div>
+          
+          {/* Discount */}
           <div className="flex justify-between text-wakatobi-primary">
             <span>{discountText()}</span>
             <span>{formatCurrency(-totals.discount)}</span>
           </div>
+          
+          {/* Total Package Price */}
           <div className="flex justify-between pt-3 border-t border-gray-200 text-xl font-bold">
             <span>Total Package Price</span>
             <span>{formatCurrency(totals.total)}</span>
@@ -361,7 +488,11 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
           className="border border-wakatobi-primary text-wakatobi-primary font-semibold py-3 px-6 rounded-lg hover:bg-wakatobi-light transition-all flex items-center"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Activities
+          {tripType === 'pelagian-only' 
+            ? 'Back to Pelagian Cabin' 
+            : tripType === 'resort-only' 
+              ? 'Back to Activities' 
+              : 'Back to Previous Step'}
         </button>
         <button 
           type="submit"
