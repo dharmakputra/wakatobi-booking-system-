@@ -1,0 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@300;400;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Wakatobi Theme Colors */
+    --wakatobi-primary: 194 100% 25%; /* #00677F */
+    --wakatobi-secondary: 35 94% 56%; /* #F89828 */
+    --wakatobi-light: 188 50% 92%; /* #E6F3F5 */
+    --wakatobi-dark: 194 100% 18%; /* #004B5E */
+    --wakatobi-grey: 0 0% 96%; /* #F5F5F5 */
+    --wakatobi-grey-dark: 0 0% 40%; /* #666666 */
+
+    /* Base Colors */
+    --background: 0 0% 100%;
+    --foreground: 224 71.4% 4.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71.4% 4.1%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71.4% 4.1%;
+    --primary: var(--wakatobi-primary);
+    --primary-foreground: 210 20% 98%;
+    --secondary: var(--wakatobi-secondary);
+    --secondary-foreground: 220.9 39.3% 11%;
+    --muted: 220 14.3% 95.9%;
+    --muted-foreground: 220 8.9% 46.1%;
+    --accent: var(--wakatobi-light);
+    --accent-foreground: 220.9 39.3% 11%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: var(--wakatobi-primary);
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 224 71.4% 4.1%;
+    --foreground: 210 20% 98%;
+    --card: 224 71.4% 4.1%;
+    --card-foreground: 210 20% 98%;
+    --popover: 224 71.4% 4.1%;
+    --popover-foreground: 210 20% 98%;
+    --primary: var(--wakatobi-primary);
+    --primary-foreground: 210 20% 98%;
+    --secondary: var(--wakatobi-secondary);
+    --secondary-foreground: 210 20% 98%;
+    --muted: 215 27.9% 16.9%;
+    --muted-foreground: 217.9 10.6% 64.9%;
+    --accent: var(--wakatobi-light);
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 215 27.9% 16.9%;
+    --input: 215 27.9% 16.9%;
+    --ring: var(--wakatobi-primary);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-opensans antialiased bg-[#F5F5F5] text-foreground;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-montserrat;
+  }
+}
+
+/* Custom Classes */
+.text-wakatobi-primary {
+  color: hsl(194, 100%, 25%);
+}
+
+.text-wakatobi-secondary {
+  color: hsl(35, 94%, 56%);
+}
+
+.text-wakatobi-dark {
+  color: hsl(194, 100%, 18%);
+}
+
+.text-wakatobi-greyDark {
+  color: hsl(0, 0%, 40%);
+}
+
+.bg-wakatobi-primary {
+  background-color: hsl(194, 100%, 25%);
+}
+
+.bg-wakatobi-secondary {
+  background-color: hsl(35, 94%, 56%);
+}
+
+.bg-wakatobi-light {
+  background-color: hsl(188, 50%, 92%);
+}
+
+.bg-wakatobi-dark {
+  background-color: hsl(194, 100%, 18%);
+}
+
+.bg-wakatobi-grey {
+  background-color: hsl(0, 0%, 96%);
+}
+
+.border-wakatobi-primary {
+  border-color: hsl(194, 100%, 25%);
+}
+
+.border-wakatobi-secondary {
+  border-color: hsl(35, 94%, 56%);
+}
+
+.hover\:bg-wakatobi-light:hover {
+  background-color: hsl(188, 50%, 92%);
+}
+
+.hover\:bg-wakatobi-dark:hover {
+  background-color: hsl(194, 100%, 18%);
+}
+
+.hover\:text-wakatobi-secondary:hover {
+  color: hsl(35, 94%, 56%);
+}
+
+.font-montserrat {
+  font-family: 'Montserrat', sans-serif;
+}
+
+.font-opensans {
+  font-family: 'Open Sans', sans-serif;
+}
