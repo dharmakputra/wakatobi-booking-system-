@@ -1,9 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Calendar } from '@/components/ui/calendar';
 import { 
   isBefore, addDays, differenceInDays, isMonday, isFriday, format, 
-  addMonths, getDate, getDaysInMonth, isAfter 
+  addMonths, getDate, getDaysInMonth, isAfter, endOfMonth, startOfMonth
 } from 'date-fns';
 import { Info } from 'lucide-react';
 import { BookingFormData } from '@shared/schema';
@@ -16,6 +16,9 @@ const DateSelectionStep: React.FC<DateSelectionStepProps> = ({ onNext }) => {
   const { setValue, watch, formState: { errors } } = useFormContext<BookingFormData>();
   const arrivalDate = watch('arrivalDate');
   const departureDate = watch('departureDate');
+  
+  // State to manage departure calendar's month view
+  const [departureDateMonth, setDepartureDateMonth] = useState<Date | undefined>(undefined);
   
   // Calculate minimum departure date as arrival date + 1 day
   const minDepartureDate = arrivalDate ? addDays(arrivalDate, 1) : undefined;
@@ -34,9 +37,21 @@ const DateSelectionStep: React.FC<DateSelectionStepProps> = ({ onNext }) => {
       const daysLeftInMonth = daysInMonth - dayOfMonth;
       
       let foundValidDepartureDate = false;
+      let isEndOfMonth = false;
+      
+      // Check if we're at the end of month (less than 7 days left)
+      if (daysLeftInMonth < 7) {
+        isEndOfMonth = true;
+        // Set the departure calendar to show the next month
+        const nextMonth = addMonths(arrivalDate, 1);
+        setDepartureDateMonth(startOfMonth(nextMonth));
+      } else {
+        // Keep the departure calendar showing the same month as arrival
+        setDepartureDateMonth(arrivalDate);
+      }
       
       // First try to find a departure date in the current month
-      if (daysLeftInMonth >= 3) { // Ensure there's at least a few days to look for Mon/Fri
+      if (!isEndOfMonth) {
         let nextDeparture = addDays(arrivalDate, 3); // Start checking from at least 3 days after arrival
         
         // Search for the next available Monday or Friday in the current month
@@ -52,7 +67,7 @@ const DateSelectionStep: React.FC<DateSelectionStepProps> = ({ onNext }) => {
       
       // If no valid date found in current month or we're close to the end of month,
       // look for a date in the next month
-      if (!foundValidDepartureDate) {
+      if (!foundValidDepartureDate || isEndOfMonth) {
         // Try to find a departure date in the next month
         const nextMonth = addMonths(arrivalDate, 1);
         
@@ -163,6 +178,8 @@ const DateSelectionStep: React.FC<DateSelectionStepProps> = ({ onNext }) => {
               onlyMonFri={true}
               disabled={!arrivalDate}
               disabledDays={disabledDepartureDays}
+              month={departureDateMonth}
+              onMonthChange={setDepartureDateMonth}
               className="rounded-md border-0"
             />
           </div>
