@@ -33,36 +33,38 @@ const DateSelectionStep: React.FC<DateSelectionStepProps> = ({ onNext }) => {
       const dayOfMonth = getDate(arrivalDate);
       const daysLeftInMonth = daysInMonth - dayOfMonth;
       
-      // If arrival date is near the end of the month (less than 7 days left) or 
-      // if there are no valid Monday/Friday options left in this month,
+      let foundValidDepartureDate = false;
+      
+      // First try to find a departure date in the current month
+      if (daysLeftInMonth >= 3) { // Ensure there's at least a few days to look for Mon/Fri
+        let nextDeparture = addDays(arrivalDate, 3); // Start checking from at least 3 days after arrival
+        
+        // Search for the next available Monday or Friday in the current month
+        while (nextDeparture.getMonth() === arrivalDate.getMonth()) {
+          if (isMonFriOnly(nextDeparture)) {
+            setValue('departureDate', nextDeparture, { shouldValidate: true });
+            foundValidDepartureDate = true;
+            break;
+          }
+          nextDeparture = addDays(nextDeparture, 1);
+        }
+      }
+      
+      // If no valid date found in current month or we're close to the end of month,
       // look for a date in the next month
-      if (daysLeftInMonth < 7) {
+      if (!foundValidDepartureDate) {
         // Try to find a departure date in the next month
         const nextMonth = addMonths(arrivalDate, 1);
         
         // Find the first Monday or Friday in the next month
         let suggestedDeparture = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1);
-        while (!isMonFriOnly(suggestedDeparture) || !isAfter(suggestedDeparture, arrivalDate)) {
+        
+        // Find the first Monday or Friday
+        while (!isMonFriOnly(suggestedDeparture)) {
           suggestedDeparture = addDays(suggestedDeparture, 1);
         }
         
         setValue('departureDate', suggestedDeparture, { shouldValidate: true });
-      } else {
-        // Otherwise, find the next available Monday or Friday in the current month
-        let nextDeparture = addDays(arrivalDate, 1);
-        while (!isMonFriOnly(nextDeparture) || isBefore(nextDeparture, arrivalDate)) {
-          nextDeparture = addDays(nextDeparture, 1);
-          
-          // If we've gone into the next month, stop
-          if (nextDeparture.getMonth() !== arrivalDate.getMonth()) {
-            break;
-          }
-        }
-        
-        // Only set departure date if we found a valid one in the current month
-        if (nextDeparture.getMonth() === arrivalDate.getMonth()) {
-          setValue('departureDate', nextDeparture, { shouldValidate: true });
-        }
       }
     }
   }, [arrivalDate, setValue]);
