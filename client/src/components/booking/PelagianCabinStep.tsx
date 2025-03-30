@@ -12,6 +12,8 @@ interface PelagianCabinStepProps {
 const PelagianCabinStep = ({ onNext, onPrev }: PelagianCabinStepProps) => {
   const { control, setValue, watch, formState: { errors } } = useFormContext<BookingFormData>();
   const selectedCabinId = watch('pelagianCabinId');
+  const tripType = watch('tripType');
+  const combinationOrder = watch('combinationOrder');
   
   const handleContinue = () => {
     if (selectedCabinId) {
@@ -94,12 +96,20 @@ const PelagianCabinStep = ({ onNext, onPrev }: PelagianCabinStepProps) => {
         <button
           type="button"
           onClick={onPrev}
-          className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition-all flex items-center"
+          className="border border-wakatobi-primary text-wakatobi-primary font-semibold py-3 px-6 rounded-lg hover:bg-wakatobi-light transition-all flex items-center"
         >
           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back
+          {tripType === 'pelagian-only' ? (
+            <>Back to Guests</>
+          ) : tripType === 'combination-stay' && combinationOrder === 'resort-first' ? (
+            <>Back to Pelagian Dates</>
+          ) : tripType === 'combination-stay' && combinationOrder === 'pelagian-first' ? (
+            <>Back to Pelagian Dates</>
+          ) : (
+            <>Back</>
+          )}
         </button>
         
         <button
@@ -112,7 +122,15 @@ const PelagianCabinStep = ({ onNext, onPrev }: PelagianCabinStepProps) => {
               : 'bg-gray-300 cursor-not-allowed'
           } text-white font-semibold py-3 px-6 rounded-lg transition-all flex items-center`}
         >
-          Continue
+          {tripType === 'pelagian-only' ? (
+            <>Continue to Quote</>
+          ) : tripType === 'combination-stay' && combinationOrder === 'resort-first' ? (
+            <>Continue to Activities</>
+          ) : tripType === 'combination-stay' && combinationOrder === 'pelagian-first' ? (
+            <>Continue to Resort Dates</>
+          ) : (
+            <>Continue</>
+          )}
           <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>

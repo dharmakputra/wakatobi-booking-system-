@@ -12,6 +12,8 @@ interface ActivitiesStepProps {
 const ActivitiesStep: React.FC<ActivitiesStepProps> = ({ onNext, onPrev }) => {
   const { setValue, watch, formState: { errors } } = useFormContext<BookingFormData>();
   const selectedActivityId = watch('activityId');
+  const tripType = watch('tripType');
+  const combinationOrder = watch('combinationOrder');
 
   const handleSelectActivity = (id: string) => {
     setValue('activityId', id, { shouldValidate: true });
@@ -93,7 +95,11 @@ const ActivitiesStep: React.FC<ActivitiesStepProps> = ({ onNext, onPrev }) => {
           className="border border-wakatobi-primary text-wakatobi-primary font-semibold py-3 px-6 rounded-lg hover:bg-wakatobi-light transition-all flex items-center"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Accommodation
+          {tripType === 'combination-stay' && combinationOrder === 'resort-first' ? (
+            <>Back to Pelagian Cabin</>
+          ) : (
+            <>Back to Accommodation</>
+          )}
         </button>
         <button 
           type="button"
