@@ -120,8 +120,10 @@ const CombinedDateSelectionStep: React.FC<CombinedDateSelectionStepProps> = ({ o
         Select Your Travel Dates
       </h2>
       
-      {/* Resort Date Selection - Show for Resort and Combination stays */}
-      {(tripType === 'resort-only' || tripType === 'combination-stay') && (
+      {/* Date Selectors - Conditionally render based on trip type and order */}
+      
+      {/* Resort Only */}
+      {tripType === 'resort-only' && (
         <div className="mb-8">
           <h3 className="text-xl font-montserrat font-semibold text-wakatobi-primary mb-4">
             Resort Stay Dates
@@ -210,8 +212,8 @@ const CombinedDateSelectionStep: React.FC<CombinedDateSelectionStepProps> = ({ o
         </div>
       )}
       
-      {/* Pelagian Date Selection - Show for Pelagian and Combination stays */}
-      {(tripType === 'pelagian-only' || tripType === 'combination-stay') && (
+      {/* Pelagian Only */}
+      {tripType === 'pelagian-only' && (
         <div className="mb-8">
           <h3 className="text-xl font-montserrat font-semibold text-wakatobi-primary mb-4">
             Pelagian Yacht Dates
@@ -298,6 +300,368 @@ const CombinedDateSelectionStep: React.FC<CombinedDateSelectionStepProps> = ({ o
             </div>
           </div>
         </div>
+      )}
+
+      {/* Combination Stay with Resort First */}
+      {tripType === 'combination-stay' && combinationOrder === 'resort-first' && (
+        <>
+          {/* Resort Date Selection First */}
+          <div className="mb-8">
+            <h3 className="text-xl font-montserrat font-semibold text-wakatobi-primary mb-4">
+              Resort Stay Dates
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Flights to and from the resort operate only on Mondays and Fridays. Please select your arrival and departure dates accordingly.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+              {/* Resort Arrival Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Resort Arrival Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !resortArrivalDate && "text-muted-foreground",
+                        errors.resortArrivalDate && "border-red-500"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {resortArrivalDate ? (
+                        format(resortArrivalDate, "PPP")
+                      ) : (
+                        <span>Select arrival date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={resortArrivalDate}
+                      onSelect={(date) => date && handleResortArrivalChange(date)}
+                      disabled={disabledResortArrivalDays}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.resortArrivalDate && (
+                  <p className="text-red-500 text-sm mt-1">{errors.resortArrivalDate.message as string}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">Only Mondays and Fridays available</p>
+              </div>
+              
+              {/* Resort Departure Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Resort Departure Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !resortDepartureDate && "text-muted-foreground",
+                        errors.resortDepartureDate && "border-red-500"
+                      )}
+                      disabled={!resortArrivalDate}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {resortDepartureDate ? (
+                        format(resortDepartureDate, "PPP")
+                      ) : (
+                        <span>Select departure date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={resortDepartureDate}
+                      onSelect={(date) => date && setValue('resortDepartureDate', date, { shouldValidate: true })}
+                      disabled={disabledResortDepartureDays}
+                      initialFocus
+                      fromDate={resortArrivalDate}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.resortDepartureDate && (
+                  <p className="text-red-500 text-sm mt-1">{errors.resortDepartureDate.message as string}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">Must be after arrival date, Mondays and Fridays only</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Pelagian Date Selection Second */}
+          <div className="mb-8">
+            <h3 className="text-xl font-montserrat font-semibold text-wakatobi-primary mb-4">
+              Pelagian Yacht Dates
+            </h3>
+            <p className="text-gray-600 mb-4">
+              The Pelagian Yacht operates on a weekly schedule with departures and arrivals on Mondays only.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+              {/* Pelagian Arrival Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pelagian Arrival Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !pelagianArrivalDate && "text-muted-foreground",
+                        errors.pelagianArrivalDate && "border-red-500"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {pelagianArrivalDate ? (
+                        format(pelagianArrivalDate, "PPP")
+                      ) : (
+                        <span>Select arrival date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={pelagianArrivalDate}
+                      onSelect={(date) => date && handlePelagianArrivalChange(date)}
+                      disabled={disabledPelagianArrivalDays}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.pelagianArrivalDate && (
+                  <p className="text-red-500 text-sm mt-1">{errors.pelagianArrivalDate.message as string}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">Only Mondays available</p>
+              </div>
+              
+              {/* Pelagian Departure Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pelagian Departure Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !pelagianDepartureDate && "text-muted-foreground",
+                        errors.pelagianDepartureDate && "border-red-500"
+                      )}
+                      disabled={!pelagianArrivalDate}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {pelagianDepartureDate ? (
+                        format(pelagianDepartureDate, "PPP")
+                      ) : (
+                        <span>Select departure date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={pelagianDepartureDate}
+                      onSelect={(date) => date && setValue('pelagianDepartureDate', date, { shouldValidate: true })}
+                      disabled={disabledPelagianDepartureDays}
+                      initialFocus
+                      fromDate={pelagianArrivalDate}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.pelagianDepartureDate && (
+                  <p className="text-red-500 text-sm mt-1">{errors.pelagianDepartureDate.message as string}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">Must be after arrival date, Mondays only</p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Combination Stay with Pelagian First */}
+      {tripType === 'combination-stay' && combinationOrder === 'pelagian-first' && (
+        <>
+          {/* Pelagian Date Selection First */}
+          <div className="mb-8">
+            <h3 className="text-xl font-montserrat font-semibold text-wakatobi-primary mb-4">
+              Pelagian Yacht Dates
+            </h3>
+            <p className="text-gray-600 mb-4">
+              The Pelagian Yacht operates on a weekly schedule with departures and arrivals on Mondays only.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+              {/* Pelagian Arrival Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pelagian Arrival Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !pelagianArrivalDate && "text-muted-foreground",
+                        errors.pelagianArrivalDate && "border-red-500"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {pelagianArrivalDate ? (
+                        format(pelagianArrivalDate, "PPP")
+                      ) : (
+                        <span>Select arrival date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={pelagianArrivalDate}
+                      onSelect={(date) => date && handlePelagianArrivalChange(date)}
+                      disabled={disabledPelagianArrivalDays}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.pelagianArrivalDate && (
+                  <p className="text-red-500 text-sm mt-1">{errors.pelagianArrivalDate.message as string}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">Only Mondays available</p>
+              </div>
+              
+              {/* Pelagian Departure Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pelagian Departure Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !pelagianDepartureDate && "text-muted-foreground",
+                        errors.pelagianDepartureDate && "border-red-500"
+                      )}
+                      disabled={!pelagianArrivalDate}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {pelagianDepartureDate ? (
+                        format(pelagianDepartureDate, "PPP")
+                      ) : (
+                        <span>Select departure date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={pelagianDepartureDate}
+                      onSelect={(date) => date && setValue('pelagianDepartureDate', date, { shouldValidate: true })}
+                      disabled={disabledPelagianDepartureDays}
+                      initialFocus
+                      fromDate={pelagianArrivalDate}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.pelagianDepartureDate && (
+                  <p className="text-red-500 text-sm mt-1">{errors.pelagianDepartureDate.message as string}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">Must be after arrival date, Mondays only</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Resort Date Selection Second */}
+          <div className="mb-8">
+            <h3 className="text-xl font-montserrat font-semibold text-wakatobi-primary mb-4">
+              Resort Stay Dates
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Flights to and from the resort operate only on Mondays and Fridays. Please select your arrival and departure dates accordingly.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+              {/* Resort Arrival Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Resort Arrival Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !resortArrivalDate && "text-muted-foreground",
+                        errors.resortArrivalDate && "border-red-500"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {resortArrivalDate ? (
+                        format(resortArrivalDate, "PPP")
+                      ) : (
+                        <span>Select arrival date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={resortArrivalDate}
+                      onSelect={(date) => date && handleResortArrivalChange(date)}
+                      disabled={disabledResortArrivalDays}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.resortArrivalDate && (
+                  <p className="text-red-500 text-sm mt-1">{errors.resortArrivalDate.message as string}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">Only Mondays and Fridays available</p>
+              </div>
+              
+              {/* Resort Departure Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Resort Departure Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !resortDepartureDate && "text-muted-foreground",
+                        errors.resortDepartureDate && "border-red-500"
+                      )}
+                      disabled={!resortArrivalDate}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {resortDepartureDate ? (
+                        format(resortDepartureDate, "PPP")
+                      ) : (
+                        <span>Select departure date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={resortDepartureDate}
+                      onSelect={(date) => date && setValue('resortDepartureDate', date, { shouldValidate: true })}
+                      disabled={disabledResortDepartureDays}
+                      initialFocus
+                      fromDate={resortArrivalDate}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.resortDepartureDate && (
+                  <p className="text-red-500 text-sm mt-1">{errors.resortDepartureDate.message as string}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">Must be after arrival date, Mondays and Fridays only</p>
+              </div>
+            </div>
+          </div>
+        </>
       )}
       
       {/* Combination Stay Order - Show for Combination stays only */}
