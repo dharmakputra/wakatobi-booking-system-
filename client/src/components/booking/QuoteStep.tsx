@@ -29,7 +29,7 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
   const visitCount = watch('visitCount');
   const accommodationId = watch('accommodationId');
   const activityId = watch('activityId');
-  const activityDays = watch('activityDays') || {};
+  const guestActivities = watch('guestActivities') || {};
   const pelagianCabinId = watch('pelagianCabinId');
   
   // Calculate resort nights
@@ -115,20 +115,22 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
         accommodationTotal = selectedAccommodation.pricePerNight * totalGuests * resortNights;
       }
       
-      if (selectedActivity) {
-        // Calculate the total number of activity days for all guests
-        let totalActivityDays = 0;
-        Object.values(activityDays).forEach(days => {
-          totalActivityDays += days;
+      // Calculate activities for each guest, they may have different activities
+      if (Object.keys(guestActivities).length > 0) {
+        // Each guest may have selected different activities
+        Object.entries(guestActivities).forEach(([guestId, guestActivity]) => {
+          if (guestActivity && guestActivity.days > 0) {
+            // Find the selected activity for this guest
+            const activity = activities.find(a => a.id === guestActivity.activityId);
+            if (activity) {
+              // Add this guest's activity cost to the total
+              activityTotal += activity.pricePerDay * guestActivity.days;
+            }
+          }
         });
-        
-        if (totalActivityDays > 0) {
-          // Calculate based on actual selected days per guest
-          activityTotal = selectedActivity.pricePerDay * totalActivityDays;
-        } else {
-          // Fallback calculation if no activity days were selected
-          activityTotal = 0;
-        }
+      } else if (selectedActivity) {
+        // Backward compatibility with old activityId field
+        activityTotal = selectedActivity.pricePerDay * totalGuests * resortNights;
       }
     }
     
@@ -181,7 +183,7 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
     effectiveDiscountRate, 
     visitorDiscountRate, 
     stayDiscountRate,
-    activityDays
+    guestActivities
   ]);
   
   // Format currency
@@ -308,7 +310,14 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
                     <p>{selectedActivity.name}</p>
                     <p className="text-sm text-gray-600">${selectedActivity.pricePerDay} per person per day</p>
                     <p className="text-sm text-gray-600">
-                      Total booked: {Object.values(activityDays).reduce((sum, days) => sum + days, 0)} activity days
+                      Total booked: {
+                        Object.values(guestActivities).reduce((sum, activity) => {
+                          if (typeof activity === 'object' && activity && 'days' in activity) {
+                            return sum + (activity.days || 0);
+                          }
+                          return sum;
+                        }, 0)
+                      } activity days
                     </p>
                   </>
                 ) : (
@@ -346,7 +355,14 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
           {totals.activityTotal > 0 && (
             <div className="flex justify-between">
               <span>
-                Resort Activities ({Object.values(activityDays).reduce((sum, days) => sum + days, 0)} total activity days × ${selectedActivity?.pricePerDay || 0})
+                Resort Activities (Individual activities with a total of {
+                  Object.values(guestActivities).reduce((sum, activity) => {
+                    if (typeof activity === 'object' && activity && 'days' in activity) {
+                      return sum + (activity.days || 0);
+                    }
+                    return sum;
+                  }, 0)
+                } days)
               </span>
               <span className="font-medium">{formatCurrency(totals.activityTotal)}</span>
             </div>

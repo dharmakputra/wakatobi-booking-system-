@@ -27,9 +27,13 @@ const generateGuestIds = (adults: number, children: number): string[] => {
   return guestIds;
 };
 
+interface GuestActivity {
+  activityId: string;
+  days: number;
+}
+
 const ActivitiesStep: React.FC<ActivitiesStepProps> = ({ onNext, onPrev }) => {
   const { setValue, watch, formState: { errors } } = useFormContext<BookingFormData>();
-  const selectedActivityId = watch('activityId');
   const tripType = watch('tripType');
   const combinationOrder = watch('combinationOrder');
   const resortArrivalDate = watch('resortArrivalDate');
@@ -38,8 +42,11 @@ const ActivitiesStep: React.FC<ActivitiesStepProps> = ({ onNext, onPrev }) => {
   const pelagianDepartureDate = watch('pelagianDepartureDate');
   const adults = watch('adults') || 0;
   const children = watch('children') || 0;
-  const activityDays = watch('activityDays') || {};
+  const guestActivities = watch('guestActivities') || {};
 
+  // For backwards compatibility (global activity selection)
+  const selectedGlobalActivityId = watch('activityId');
+  
   // Calculate maximum activity days based on total nights
   const maxActivityDays = useMemo(() => {
     let totalNights = 0;
@@ -78,32 +85,52 @@ const ActivitiesStep: React.FC<ActivitiesStepProps> = ({ onNext, onPrev }) => {
     return generateGuestIds(adults, children);
   }, [adults, children]);
 
-  // Initialize activity days for all guests on first render
+  // Initialize guest activities for all guests on first render
   useEffect(() => {
-    if (!activityDays || Object.keys(activityDays).length === 0) {
-      const initialActivityDays: Record<string, number> = {};
+    if (!guestActivities || Object.keys(guestActivities).length === 0) {
+      const initialGuestActivities: Record<string, GuestActivity> = {};
+      
+      // If we have a selected activity (from previous implementation), use it
+      const defaultActivityId = selectedGlobalActivityId || (activities.length > 0 ? activities[0].id : '');
+      
       guestIds.forEach(guestId => {
-        initialActivityDays[guestId] = 0;
+        initialGuestActivities[guestId] = {
+          activityId: defaultActivityId,
+          days: 0
+        };
       });
-      setValue('activityDays', initialActivityDays);
+      
+      setValue('guestActivities', initialGuestActivities);
+      
+      // Also set the global activity for backward compatibility
+      if (defaultActivityId && !selectedGlobalActivityId) {
+        setValue('activityId', defaultActivityId);
+      }
     }
-  }, [guestIds, setValue, activityDays]);
+  }, [guestIds, setValue, guestActivities, selectedGlobalActivityId]);
 
-  const handleSelectActivity = (id: string) => {
-    setValue('activityId', id, { shouldValidate: true });
+  const handleSelectGuestActivity = (guestId: string, activityId: string) => {
+    // Get the current days for this guest (or 0 if not set)
+    const currentDays = guestActivities[guestId]?.days || 0;
+    
+    // Update the guest's activity
+    setValue(`guestActivities.${guestId}`, {
+      activityId,
+      days: currentDays
+    });
   };
 
   const handleIncrementActivityDays = (guestId: string) => {
-    const currentDays = activityDays[guestId] || 0;
-    if (currentDays < maxActivityDays) {
-      setValue(`activityDays.${guestId}`, currentDays + 1);
+    const currentActivity = guestActivities[guestId];
+    if (currentActivity && currentActivity.days < maxActivityDays) {
+      setValue(`guestActivities.${guestId}.days`, currentActivity.days + 1);
     }
   };
 
   const handleDecrementActivityDays = (guestId: string) => {
-    const currentDays = activityDays[guestId] || 0;
-    if (currentDays > 0) {
-      setValue(`activityDays.${guestId}`, currentDays - 1);
+    const currentActivity = guestActivities[guestId];
+    if (currentActivity && currentActivity.days > 0) {
+      setValue(`guestActivities.${guestId}.days`, currentActivity.days - 1);
     }
   };
 
@@ -124,106 +151,72 @@ const ActivitiesStep: React.FC<ActivitiesStepProps> = ({ onNext, onPrev }) => {
       </h2>
       <p className="mb-6 text-gray-600">
         All activity packages are per person per day. Choose the experiences that will make your stay unforgettable.
+        Each guest can select their own activity package.
       </p>
       
-      <div className="grid grid-cols-1 gap-6 mb-8">
-        {activities.map((activity) => (
-          <div 
-            key={activity.id}
-            className={`activity-option border rounded-lg overflow-hidden hover:shadow-lg transition-all ${
-              selectedActivityId === activity.id ? 'border-wakatobi-primary shadow-md' : 'border-gray-300'
-            }`}
-          >
-            <div className="flex flex-col md:flex-row">
-              {activity.image && (
-                <img 
-                  src={activity.image} 
-                  alt={activity.name} 
-                  className="w-full md:w-1/3 h-60 md:h-auto object-cover"
-                />
-              )}
-              <div className={`p-4 ${activity.image ? 'md:w-2/3' : 'w-full'}`}>
-                <div className="flex justify-between items-start">
-                  <h3 className="font-montserrat font-semibold text-lg">{activity.name}</h3>
-                  <div className="text-wakatobi-primary font-bold text-lg">
-                    ${activity.pricePerDay}
-                    <span className="text-sm font-normal">/person/day</span>
-                  </div>
-                </div>
-                <p className="text-gray-600 text-sm mt-2 mb-4">{activity.description}</p>
-                
-                {activity.features && activity.features.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {activity.features.map((feature, index) => (
-                      <span 
-                        key={index} 
-                        className="bg-wakatobi-light text-wakatobi-primary text-xs py-1 px-2 rounded"
-                      >
-                        {feature}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                
-                <button 
-                  type="button"
-                  onClick={() => handleSelectActivity(activity.id)}
-                  className={`${
-                    selectedActivityId === activity.id 
-                      ? 'bg-wakatobi-primary text-white hover:bg-wakatobi-dark' 
-                      : 'bg-white border border-wakatobi-primary text-wakatobi-primary hover:bg-wakatobi-light'
-                  } font-medium py-2 px-4 rounded transition-all mb-4`}
-                >
-                  {selectedActivityId === activity.id ? 'Selected' : 'Select'}
-                </button>
-                
-                {selectedActivityId === activity.id && (
-                  <div className="mt-4 border-t pt-4">
-                    <h4 className="font-semibold mb-2">Activity Days per Guest</h4>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Select how many days each guest will participate in this activity.
-                      Maximum: {maxActivityDays} days per guest.
-                    </p>
-                    
-                    <div className="grid gap-3">
-                      {guestIds.map(guestId => (
-                        <div key={guestId} className="flex items-center justify-between py-2 border-b border-gray-100">
-                          <span className="font-medium">{getGuestLabel(guestId)}</span>
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => handleDecrementActivityDays(guestId)}
-                              disabled={!activityDays[guestId] || activityDays[guestId] <= 0}
-                              className="p-1 rounded-full border border-gray-300 disabled:opacity-50"
-                            >
-                              <Minus className="h-4 w-4" />
-                            </button>
-                            <span className="w-10 text-center">
-                              {activityDays[guestId] || 0}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleIncrementActivityDays(guestId)}
-                              disabled={(activityDays[guestId] || 0) >= maxActivityDays}
-                              className="p-1 rounded-full border border-gray-300 disabled:opacity-50"
-                            >
-                              <Plus className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+      <div className="space-y-8">
+        {guestIds.map(guestId => (
+          <div key={guestId} className="border rounded-lg p-4">
+            <h3 className="text-xl font-semibold mb-4">{getGuestLabel(guestId)}</h3>
+            
+            <div className="mb-4">
+              <h4 className="font-medium mb-2">Select an Activity Package:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                {activities.map(activity => (
+                  <div 
+                    key={activity.id}
+                    className={`
+                      p-3 border rounded cursor-pointer transition-all
+                      ${guestActivities[guestId]?.activityId === activity.id 
+                        ? 'border-wakatobi-primary bg-wakatobi-light/30' 
+                        : 'border-gray-200 hover:border-wakatobi-primary'}
+                    `}
+                    onClick={() => handleSelectGuestActivity(guestId, activity.id)}
+                  >
+                    <div className="flex justify-between">
+                      <span className="font-medium">{activity.name}</span>
+                      <span className="text-wakatobi-primary">${activity.pricePerDay}/day</span>
                     </div>
+                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{activity.description}</p>
                   </div>
-                )}
+                ))}
               </div>
             </div>
+            
+            {guestActivities[guestId]?.activityId && (
+              <div>
+                <h4 className="font-medium mb-2">Number of Activity Days:</h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  Select how many days this guest will participate in their chosen activity.
+                  Maximum: {maxActivityDays} days.
+                </p>
+                
+                <div className="flex items-center gap-3 w-fit border rounded p-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDecrementActivityDays(guestId)}
+                    disabled={!guestActivities[guestId] || guestActivities[guestId].days <= 0}
+                    className="p-1 rounded-full border border-gray-300 disabled:opacity-50"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span className="w-10 text-center">
+                    {guestActivities[guestId]?.days || 0}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleIncrementActivityDays(guestId)}
+                    disabled={!guestActivities[guestId] || guestActivities[guestId].days >= maxActivityDays}
+                    className="p-1 rounded-full border border-gray-300 disabled:opacity-50"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
-      
-      {errors.activityId && (
-        <p className="text-red-500 mt-2">{errors.activityId.message as string}</p>
-      )}
       
       <div className="mt-8 flex justify-between">
         <button 
