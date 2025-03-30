@@ -3,8 +3,10 @@ import { BookingFormData, validateBookingData } from '@shared/schema';
 import DateSelectionStep from './DateSelectionStep';
 import ResortDateSelectionStep from './ResortDateSelectionStep';
 import PelagianDateSelectionStep from './PelagianDateSelectionStep';
+import CombinedDateSelectionStep from './CombinedDateSelectionStep';
 import GuestsStep from './GuestsStep';
 import AccommodationStep from './AccommodationStep';
+import CombinedAccommodationStep from './CombinedAccommodationStep';
 import PelagianCabinStep from './PelagianCabinStep';
 import ActivitiesStep from './ActivitiesStep';
 import TripTypeSelection from './TripTypeSelection';
@@ -35,34 +37,12 @@ const getStepsForTripType = (tripType: string | undefined, combinationOrder?: st
         { id: 6, name: 'Review & Quote' }
       ];
     case 'combination-stay':
-      if (combinationOrder === 'resort-first') {
-        return [
-          ...baseSteps,
-          { id: 4, name: 'Resort Accommodation' },
-          { id: 5, name: 'Pelagian Dates' },
-          { id: 6, name: 'Pelagian Cabin' },
-          { id: 7, name: 'Activities' },
-          { id: 8, name: 'Review & Quote' }
-        ];
-      } else if (combinationOrder === 'pelagian-first') {
-        return [
-          ...baseSteps,
-          { id: 4, name: 'Pelagian Dates' },
-          { id: 5, name: 'Pelagian Cabin' },
-          { id: 6, name: 'Resort Dates' },
-          { id: 7, name: 'Accommodation' },
-          { id: 8, name: 'Activities' },
-          { id: 9, name: 'Review & Quote' }
-        ];
-      } else {
-        return [
-          ...baseSteps,
-          { id: 4, name: 'Resort Accommodation' },
-          { id: 5, name: 'Pelagian Cabin' },
-          { id: 6, name: 'Activities' },
-          { id: 7, name: 'Review & Quote' }
-        ];
-      }
+      return [
+        ...baseSteps,
+        { id: 4, name: 'Accommodation' },
+        { id: 5, name: 'Activities' },
+        { id: 6, name: 'Review & Quote' }
+      ];
     case 'pelagian-only':
       return [
         ...baseSteps,
@@ -263,7 +243,7 @@ const BookingSteps: React.FC = () => {
       return <TripTypeSelection onNext={nextStep} />;
     }
     
-    // Dates step depends on trip type
+    // Dates step - using our new combined date selection component
     if (currentStep === 2) {
       switch (watchTripType) {
         case 'resort-only':
@@ -271,13 +251,8 @@ const BookingSteps: React.FC = () => {
         case 'pelagian-only':
           return <PelagianDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
         case 'combination-stay':
-          // For combination stay, select based on the chosen order
-          const combinationOrder = methods.watch('combinationOrder');
-          if (combinationOrder === 'resort-first') {
-            return <ResortDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
-          } else {
-            return <PelagianDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
-          }
+          // Use our new combined date selection component for combination stays
+          return <CombinedDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
         default:
           return <DateSelectionStep onNext={nextStep} />;
       }
@@ -299,25 +274,13 @@ const BookingSteps: React.FC = () => {
       if (currentStep === 5) return <QuoteStep onPrev={prevStep} />;
     } 
     else if (watchTripType === 'combination-stay') {
-      const combinationOrder = methods.watch('combinationOrder');
-      
-      // Handle different step orders based on combination order
-      if (combinationOrder === 'resort-first') {
-        // Resort First -> Pelagian Second
-        if (currentStep === 4) return <AccommodationStep onNext={nextStep} onPrev={prevStep} />;
-        if (currentStep === 5) return <PelagianDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
-        if (currentStep === 6) return <PelagianCabinStep onNext={nextStep} onPrev={prevStep} />;
-        if (currentStep === 7) return <ActivitiesStep onNext={nextStep} onPrev={prevStep} />;
-        if (currentStep === 8) return <QuoteStep onPrev={prevStep} />;
-      } else {
-        // Pelagian First -> Resort Second
-        if (currentStep === 4) return <PelagianDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
-        if (currentStep === 5) return <PelagianCabinStep onNext={nextStep} onPrev={prevStep} />;
-        if (currentStep === 6) return <ResortDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
-        if (currentStep === 7) return <AccommodationStep onNext={nextStep} onPrev={prevStep} />;
-        if (currentStep === 8) return <ActivitiesStep onNext={nextStep} onPrev={prevStep} />;
-        if (currentStep === 9) return <QuoteStep onPrev={prevStep} />;
+      // Simplified flow for combination stay
+      if (currentStep === 4) {
+        // Use our new combined accommodation step for both Resort and Pelagian
+        return <CombinedAccommodationStep onNext={nextStep} onPrev={prevStep} />;
       }
+      if (currentStep === 5) return <ActivitiesStep onNext={nextStep} onPrev={prevStep} />;
+      if (currentStep === 6) return <QuoteStep onPrev={prevStep} />;
     }
     
     // Fallback
