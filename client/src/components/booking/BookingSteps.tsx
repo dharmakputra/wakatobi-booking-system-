@@ -75,9 +75,15 @@ const BookingSteps: React.FC = () => {
       // Calculate nights
       const nights = differenceInDays(departureDate, arrivalDate);
       
-      // Calculate discount
-      const discountRate = data.visitCount === 'second-third' ? 0.05 : 
-                           data.visitCount === 'fourth-plus' ? 0.10 : 0;
+      // Calculate visitor discount
+      const visitorDiscountRate = data.visitCount === 'second-third' ? 0.05 : 
+                                 data.visitCount === 'fourth-plus' ? 0.10 : 0;
+      
+      // Calculate stay length discount
+      const stayDiscountRate = nights > 14 ? 0.10 : nights > 7 ? 0.05 : 0;
+      
+      // Use the higher discount rate (they don't stack)
+      const effectiveDiscountRate = Math.max(visitorDiscountRate, stayDiscountRate);
       
       // Calculate totals
       const totalGuests = adults + children;
@@ -86,7 +92,7 @@ const BookingSteps: React.FC = () => {
       const flightTotal = FLIGHT_PRICE * totalGuests;
       
       // Discount only applies to accommodation and activities
-      const discount = (accommodationTotal + activityTotal) * discountRate;
+      const discount = (accommodationTotal + activityTotal) * effectiveDiscountRate;
       const totalPrice = Math.round((accommodationTotal + activityTotal + flightTotal - discount) * 100);
       
       const response = await apiRequest('POST', '/api/bookings', {

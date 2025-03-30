@@ -84,3 +84,13 @@ export const getDiscountRate = (visitCount: string): number => {
       return 0; // No discount for first-time visitors
   }
 };
+
+// Calculate discount based on length of stay
+export const getStayDiscountRate = (nights: number): number => {
+  if (nights > 14) {
+    return 0.10; // 10% discount for stays longer than 14 nights
+  } else if (nights > 7) {
+    return 0.05; // 5% discount for stays longer than 7 nights
+  }
+  return 0; // No discount for short stays
+};

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { BookingFormData } from '@shared/schema';
 import { ArrowLeft, Info, Send } from 'lucide-react';
-import { accommodations, activities, FLIGHT_PRICE } from '@/lib/booking-data';
+import { accommodations, activities, FLIGHT_PRICE, getDiscountRate, getStayDiscountRate } from '@/lib/booking-data';
 import { differenceInDays, format } from 'date-fns';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,12 +42,20 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
     return activities.find(act => act.id === activityId);
   }, [activityId]);
   
-  // Calculate discount rate based on visit count
-  const discountRate = useMemo(() => {
-    if (visitCount === 'second-third') return 0.05; // 5% discount
-    if (visitCount === 'fourth-plus') return 0.10; // 10% discount
-    return 0; // No discount for first-time visitors
+  // Calculate visitor discount rate based on visit count
+  const visitorDiscountRate = useMemo(() => {
+    return getDiscountRate(visitCount);
   }, [visitCount]);
+  
+  // Calculate stay length discount rate
+  const stayDiscountRate = useMemo(() => {
+    return getStayDiscountRate(nights);
+  }, [nights]);
+  
+  // Get the higher of the two discount rates (they don't stack)
+  const effectiveDiscountRate = useMemo(() => {
+    return Math.max(visitorDiscountRate, stayDiscountRate);
+  }, [visitorDiscountRate, stayDiscountRate]);
   
   // Calculate totals with appropriate discounts
   const totals = useMemo(() => {
@@ -57,6 +65,8 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
         activityTotal: 0,
         flightTotal: 0,
         discount: 0,
+        discountType: '',
+        discountRate: 0,
         subtotal: 0,
         total: 0
       };
@@ -69,19 +79,31 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
     const flightTotal = FLIGHT_PRICE * totalGuests;
     
     // Discount only applies to accommodation and activities
-    const discount = (accommodationTotal + activityTotal) * discountRate;
+    const discount = (accommodationTotal + activityTotal) * effectiveDiscountRate;
     const subtotal = accommodationTotal + activityTotal + flightTotal;
     const total = subtotal - discount;
+    
+    // Determine which discount type is being applied (for display purposes)
+    let discountType = '';
+    if (effectiveDiscountRate > 0) {
+      if (stayDiscountRate > visitorDiscountRate) {
+        discountType = 'stay';
+      } else {
+        discountType = 'visitor';
+      }
+    }
     
     return {
       accommodationTotal,
       activityTotal,
       flightTotal,
       discount,
+      discountType,
+      discountRate: effectiveDiscountRate,
       subtotal,
       total
     };
-  }, [selectedAccommodation, selectedActivity, adults, children, nights, discountRate]);
+  }, [selectedAccommodation, selectedActivity, adults, children, nights, effectiveDiscountRate, visitorDiscountRate, stayDiscountRate]);
   
   // Format currency
   const formatCurrency = (value: number) => {
@@ -94,6 +116,16 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
   
   // Get discount text
   const discountText = () => {
+    // Stay length discount is being applied
+    if (totals.discountType === 'stay') {
+      if (nights > 14) {
+        return `Stay longer than 14 nights (10% discount)`;
+      } else if (nights > 7) {
+        return `Stay longer than 7 nights (5% discount)`;
+      }
+    }
+    
+    // Visitor count discount is being applied (or no discount)
     if (visitCount === 'first') return 'First-time visitor (no discount)';
     if (visitCount === 'second-third') return '2nd or 3rd visit (5% discount)';
     return '4th or more visit (10% discount)';
@@ -206,10 +238,18 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
           </div>
         </div>
         
-        <div className="mt-6 text-sm text-gray-600">
+        <div className="mt-6 text-sm text-gray-600 space-y-2">
           <p className="flex items-start">
             <Info className="h-4 w-4 mr-1 mt-0.5" />
             Repeat visitors receive a 5% discount (2nd-3rd visits) or 10% discount (4th+ visits) on accommodation and activities.
+          </p>
+          <p className="flex items-start">
+            <Info className="h-4 w-4 mr-1 mt-0.5" />
+            Extended stays longer than 7 nights receive a 5% discount, and stays longer than 14 nights receive a 10% discount on accommodation and activities.
+          </p>
+          <p className="flex items-start">
+            <Info className="h-4 w-4 mr-1 mt-0.5" />
+            Only the highest applicable discount will be applied (discounts don't stack).
           </p>
         </div>
       </div>
