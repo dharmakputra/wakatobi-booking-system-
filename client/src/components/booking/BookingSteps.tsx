@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
-import { BookingFormData } from '@shared/schema';
+import React, { useEffect, useState } from 'react';
+import { BookingFormData, validateBookingData } from '@shared/schema';
 import DateSelectionStep from './DateSelectionStep';
+import ResortDateSelectionStep from './ResortDateSelectionStep';
+import PelagianDateSelectionStep from './PelagianDateSelectionStep';
 import GuestsStep from './GuestsStep';
 import AccommodationStep from './AccommodationStep';
+import PelagianCabinStep from './PelagianCabinStep';
 import ActivitiesStep from './ActivitiesStep';
+import TripTypeSelection from './TripTypeSelection';
 import QuoteStep from './QuoteStep';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,15 +15,43 @@ import { bookingFormSchema } from '@shared/schema';
 import { addDays, differenceInDays } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { accommodations, activities, FLIGHT_PRICE } from '@/lib/booking-data';
+import { accommodations, activities, pelagianCabins, FLIGHT_PRICE } from '@/lib/booking-data';
 
-const steps = [
-  { id: 1, name: 'Dates' },
-  { id: 2, name: 'Guests' },
-  { id: 3, name: 'Accommodation' },
-  { id: 4, name: 'Activities' },
-  { id: 5, name: 'Review & Quote' }
-];
+const getStepsForTripType = (tripType: string | undefined) => {
+  const baseSteps = [
+    { id: 1, name: 'Trip Type' },
+    { id: 2, name: 'Dates' },
+    { id: 3, name: 'Guests' }
+  ];
+
+  if (!tripType) return baseSteps;
+
+  switch (tripType) {
+    case 'resort-only':
+      return [
+        ...baseSteps,
+        { id: 4, name: 'Accommodation' },
+        { id: 5, name: 'Activities' },
+        { id: 6, name: 'Review & Quote' }
+      ];
+    case 'combination-stay':
+      return [
+        ...baseSteps,
+        { id: 4, name: 'Resort Accommodation' },
+        { id: 5, name: 'Pelagian Cabin' },
+        { id: 6, name: 'Activities' },
+        { id: 7, name: 'Review & Quote' }
+      ];
+    case 'pelagian-only':
+      return [
+        ...baseSteps,
+        { id: 4, name: 'Pelagian Cabin' },
+        { id: 5, name: 'Review & Quote' }
+      ];
+    default:
+      return baseSteps;
+  }
+};
 
 const BookingSteps: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -29,6 +61,7 @@ const BookingSteps: React.FC = () => {
   const methods = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
+      tripType: undefined,
       adults: 2,
       children: 0,
       infants: 0,
@@ -41,8 +74,16 @@ const BookingSteps: React.FC = () => {
     }
   });
 
+  const watchTripType = methods.watch('tripType');
+  const [steps, setSteps] = useState(getStepsForTripType(watchTripType));
+
+  // Update steps when trip type changes
+  useEffect(() => {
+    setSteps(getStepsForTripType(watchTripType));
+  }, [watchTripType]);
+
   const nextStep = () => {
-    if (currentStep < 5) {
+    if (currentStep < steps.length) {
       setCurrentStep(prevStep => prevStep + 1);
     }
   };
@@ -55,51 +96,118 @@ const BookingSteps: React.FC = () => {
 
   const onSubmit = async (data: BookingFormData) => {
     try {
-      // Calculate price totals
-      const adults = data.adults || 0;
-      const children = data.children || 0;
-      const selectedAccommodation = accommodations.find(acc => acc.id === data.accommodationId);
-      const selectedActivity = activities.find(act => act.id === data.activityId);
-      const arrivalDate = data.arrivalDate;
-      const departureDate = data.departureDate;
-      
-      if (!selectedAccommodation || !selectedActivity || !arrivalDate || !departureDate) {
+      // Validate fields based on trip type
+      const validationErrors = validateBookingData(data);
+      if (Object.keys(validationErrors).length > 0) {
+        const errorMessage = Object.values(validationErrors)[0];
         toast({
           title: "Form Error",
-          description: "Missing required booking information. Please complete all steps.",
+          description: errorMessage,
           variant: "destructive",
         });
         return;
       }
       
-      // Calculate nights
-      const nights = differenceInDays(departureDate, arrivalDate);
+      // Calculate price totals
+      const adults = data.adults || 0;
+      const children = data.children || 0;
+      const totalGuests = adults + children;
+      let accommodationTotal = 0;
+      let activityTotal = 0;
+      let pelagianCabinTotal = 0;
+      let flightTotal = FLIGHT_PRICE * totalGuests;
+      let totalNights = 0;
+
+      // Calculate Resort stay (if applicable)
+      if (data.tripType === 'resort-only' || data.tripType === 'combination-stay') {
+        if (!data.resortArrivalDate || !data.resortDepartureDate || !data.accommodationId) {
+          toast({
+            title: "Form Error",
+            description: "Missing required resort information. Please complete all steps.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const selectedAccommodation = accommodations.find(acc => acc.id === data.accommodationId);
+        const selectedActivity = activities.find(act => act.id === data.activityId);
+        
+        if (!selectedAccommodation || !selectedActivity) {
+          toast({
+            title: "Form Error",
+            description: "Missing accommodation or activity selection. Please complete all steps.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const resortNights = differenceInDays(data.resortDepartureDate, data.resortArrivalDate);
+        totalNights += resortNights;
+        
+        accommodationTotal = selectedAccommodation.pricePerNight * totalGuests * resortNights;
+        activityTotal = selectedActivity.pricePerDay * totalGuests * resortNights;
+      }
+      
+      // Calculate Pelagian stay (if applicable)
+      if (data.tripType === 'pelagian-only' || data.tripType === 'combination-stay') {
+        if (!data.pelagianArrivalDate || !data.pelagianDepartureDate || !data.pelagianCabinId) {
+          toast({
+            title: "Form Error",
+            description: "Missing required Pelagian information. Please complete all steps.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const selectedCabin = pelagianCabins.find(cab => cab.id === data.pelagianCabinId);
+        
+        if (!selectedCabin) {
+          toast({
+            title: "Form Error",
+            description: "Missing cabin selection. Please complete all steps.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const pelagianNights = differenceInDays(data.pelagianDepartureDate, data.pelagianArrivalDate);
+        totalNights += pelagianNights;
+        
+        pelagianCabinTotal = selectedCabin.pricePerNight * totalGuests * pelagianNights;
+      }
       
       // Calculate visitor discount
       const visitorDiscountRate = data.visitCount === 'second-third' ? 0.05 : 
                                  data.visitCount === 'fourth-plus' ? 0.10 : 0;
       
       // Calculate stay length discount
-      const stayDiscountRate = nights > 14 ? 0.10 : nights > 7 ? 0.05 : 0;
+      const stayDiscountRate = totalNights > 14 ? 0.10 : totalNights > 7 ? 0.05 : 0;
       
       // Always prioritize stay length discount if it's available (they don't stack)
       const effectiveDiscountRate = stayDiscountRate > 0 ? stayDiscountRate : visitorDiscountRate;
       
-      // Calculate totals
-      const totalGuests = adults + children;
-      const accommodationTotal = selectedAccommodation.pricePerNight * totalGuests * nights;
-      const activityTotal = selectedActivity.pricePerDay * totalGuests * nights;
-      const flightTotal = FLIGHT_PRICE * totalGuests;
+      // Discount only applies to accommodation, activities, and Pelagian cabin
+      const discountableAmount = accommodationTotal + activityTotal + pelagianCabinTotal;
+      const discount = discountableAmount * effectiveDiscountRate;
       
-      // Discount only applies to accommodation and activities
-      const discount = (accommodationTotal + activityTotal) * effectiveDiscountRate;
-      const totalPrice = Math.round((accommodationTotal + activityTotal + flightTotal - discount) * 100);
+      // Set totalPrice in cents for storage
+      const totalPrice = Math.round((discountableAmount + flightTotal - discount) * 100);
+      
+      // For compatibility with existing API, copy resort dates to legacy fields if this is resort-only
+      if (data.tripType === 'resort-only' && data.resortArrivalDate && data.resortDepartureDate) {
+        data.arrivalDate = data.resortArrivalDate;
+        data.departureDate = data.resortDepartureDate;
+      }
       
       const response = await apiRequest('POST', '/api/bookings', {
         ...data,
         // Convert dates to ISO strings for the backend
-        arrivalDate: data.arrivalDate.toISOString(),
-        departureDate: data.departureDate.toISOString(),
+        resortArrivalDate: data.resortArrivalDate?.toISOString(),
+        resortDepartureDate: data.resortDepartureDate?.toISOString(),
+        pelagianArrivalDate: data.pelagianArrivalDate?.toISOString(),
+        pelagianDepartureDate: data.pelagianDepartureDate?.toISOString(),
+        arrivalDate: data.arrivalDate?.toISOString(),
+        departureDate: data.departureDate?.toISOString(),
         totalPrice, // Add the calculated total price (in cents)
       });
       
@@ -124,6 +232,55 @@ const BookingSteps: React.FC = () => {
         variant: "destructive",
       });
     }
+  };
+
+  // Render different steps based on trip type
+  const renderCurrentStep = () => {
+    // First step is always Trip Type Selection
+    if (currentStep === 1) {
+      return <TripTypeSelection onNext={nextStep} />;
+    }
+    
+    // Dates step depends on trip type
+    if (currentStep === 2) {
+      switch (watchTripType) {
+        case 'resort-only':
+          return <ResortDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
+        case 'pelagian-only':
+          return <PelagianDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
+        case 'combination-stay':
+          // For combination stay, we'll show resort dates first
+          return <ResortDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
+        default:
+          return <DateSelectionStep onNext={nextStep} />;
+      }
+    }
+    
+    // Guests step is always the same
+    if (currentStep === 3) {
+      return <GuestsStep onNext={nextStep} onPrev={prevStep} />;
+    }
+    
+    // Different paths based on trip type for subsequent steps
+    if (watchTripType === 'resort-only') {
+      if (currentStep === 4) return <AccommodationStep onNext={nextStep} onPrev={prevStep} />;
+      if (currentStep === 5) return <ActivitiesStep onNext={nextStep} onPrev={prevStep} />;
+      if (currentStep === 6) return <QuoteStep onPrev={prevStep} />;
+    } 
+    else if (watchTripType === 'pelagian-only') {
+      if (currentStep === 4) return <PelagianCabinStep onNext={nextStep} onPrev={prevStep} />;
+      if (currentStep === 5) return <QuoteStep onPrev={prevStep} />;
+    } 
+    else if (watchTripType === 'combination-stay') {
+      if (currentStep === 4) return <AccommodationStep onNext={nextStep} onPrev={prevStep} />;
+      if (currentStep === 5) return <PelagianDateSelectionStep onNext={nextStep} onPrev={prevStep} />;
+      if (currentStep === 6) return <PelagianCabinStep onNext={nextStep} onPrev={prevStep} />;
+      if (currentStep === 7) return <ActivitiesStep onNext={nextStep} onPrev={prevStep} />;
+      if (currentStep === 8) return <QuoteStep onPrev={prevStep} />;
+    }
+    
+    // Fallback
+    return <TripTypeSelection onNext={nextStep} />;
   };
 
   return (
@@ -155,11 +312,7 @@ const BookingSteps: React.FC = () => {
       <FormProvider {...methods}>
         <form onSubmit={methods.handleSubmit(onSubmit)}>
           <div className="booking-form">
-            {currentStep === 1 && <DateSelectionStep onNext={nextStep} />}
-            {currentStep === 2 && <GuestsStep onNext={nextStep} onPrev={prevStep} />}
-            {currentStep === 3 && <AccommodationStep onNext={nextStep} onPrev={prevStep} />}
-            {currentStep === 4 && <ActivitiesStep onNext={nextStep} onPrev={prevStep} />}
-            {currentStep === 5 && <QuoteStep onPrev={prevStep} />}
+            {renderCurrentStep()}
           </div>
         </form>
       </FormProvider>
