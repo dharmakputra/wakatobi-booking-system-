@@ -29,6 +29,7 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
   const visitCount = watch('visitCount');
   const accommodationId = watch('accommodationId');
   const activityId = watch('activityId');
+  const activityDays = watch('activityDays') || {};
   const pelagianCabinId = watch('pelagianCabinId');
   
   // Calculate resort nights
@@ -114,8 +115,20 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
         accommodationTotal = selectedAccommodation.pricePerNight * totalGuests * resortNights;
       }
       
-      if (selectedActivity && resortNights > 0) {
-        activityTotal = selectedActivity.pricePerDay * totalGuests * resortNights;
+      if (selectedActivity) {
+        // Calculate the total number of activity days for all guests
+        let totalActivityDays = 0;
+        Object.values(activityDays).forEach(days => {
+          totalActivityDays += days;
+        });
+        
+        if (totalActivityDays > 0) {
+          // Calculate based on actual selected days per guest
+          activityTotal = selectedActivity.pricePerDay * totalActivityDays;
+        } else {
+          // Fallback calculation if no activity days were selected
+          activityTotal = 0;
+        }
       }
     }
     
@@ -167,7 +180,8 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
     pelagianNights,
     effectiveDiscountRate, 
     visitorDiscountRate, 
-    stayDiscountRate
+    stayDiscountRate,
+    activityDays
   ]);
   
   // Format currency
@@ -293,6 +307,9 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
                   <>
                     <p>{selectedActivity.name}</p>
                     <p className="text-sm text-gray-600">${selectedActivity.pricePerDay} per person per day</p>
+                    <p className="text-sm text-gray-600">
+                      Total booked: {Object.values(activityDays).reduce((sum, days) => sum + days, 0)} activity days
+                    </p>
                   </>
                 ) : (
                   <p className="text-sm text-red-500">Please select resort activities</p>
@@ -328,7 +345,9 @@ const QuoteStep: React.FC<QuoteStepProps> = ({ onPrev }) => {
           {/* Resort Activities - Only displayed if selected and has days */}
           {totals.activityTotal > 0 && (
             <div className="flex justify-between">
-              <span>Resort Activities ({adults + children} persons × {resortNights} days × ${selectedActivity?.pricePerDay || 0})</span>
+              <span>
+                Resort Activities ({Object.values(activityDays).reduce((sum, days) => sum + days, 0)} total activity days × ${selectedActivity?.pricePerDay || 0})
+              </span>
               <span className="font-medium">{formatCurrency(totals.activityTotal)}</span>
             </div>
           )}

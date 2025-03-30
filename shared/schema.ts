@@ -18,6 +18,7 @@ export const bookings = pgTable("bookings", {
   visitCount: text("visit_count").notNull(),
   accommodationId: text("accommodation_id").notNull(),
   activityId: text("activity_id").notNull(),
+  activityDays: text("activity_days"), // Stored as JSON string
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").notNull(),
@@ -84,6 +85,7 @@ export const bookingFormSchema = z.object({
 
   // Activities
   activityId: z.string().optional(),
+  activityDays: z.record(z.string(), z.number()).optional(), // Map guest ID to number of activity days
   
   // Contact Information
   firstName: z.string().min(2, "First name must be at least 2 characters."),
